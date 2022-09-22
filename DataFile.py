@@ -12,17 +12,17 @@ class DataFile:
         self.result2 = ""
         self.isChanged = False
         self.source =""
-        self.startOfHalfTime = 0
+#        self.startOfHalfTime = 0
         self.attribute= ""
         self.value= ""
         self.tag =""
         self.videoBoxAttribute =""
         self.videoBoxValue =""
         self.videoBoxTag =""
-        self.importanceLevel =0
+        self.importanceLevel =-1
 
     def getFileName(self):
-        return self.team1 + self.result1 + "-" + self.result2 + self.team2 + self.minGame[0:2]
+        return self.team1 + self.result1 + "-" + self.result2 + self.team2 + self.minGame[0:self.minGame.find(":")]
 
     def resultToString(self):
         return self.team1 + " " + self.result1 + " - " + self.result2 + " " + self.team2 + " " + self.minGame
