@@ -7,21 +7,20 @@ import cv2
 import numpy as np
 import pyautogui
 from selenium import webdriver
-from selenium.webdriver.firefox import firefox_profile
-
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common import by
-
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.firefox import firefox_profile
+from selenium.webdriver.common.keys import Keys
 
 class Record:
-    def __init__(self, dataFile: DataFile.DataFile, timeLimit: int, delay: int):
+    def __init__(self, dataFile: DataFile.DataFile, timeLimitSec: int, delay: int = 0, rewindTimeSec : int= 50):
         self.driver = None
         self.delay = delay
         self.dataFile = dataFile
-        self.timeLimit = timeLimit
-
+        self.timeLimit = timeLimitSec
+        self.timeLen = rewindTimeSec
 
     def record(self):
         # webbrowser.open(self.url.getUrl())  # Go to example.com
@@ -58,69 +57,77 @@ class Record:
         self.driver.get(self.dataFile.URLToPlay)
         self.driver.maximize_window()
         time.sleep(5)
-        self.__screenWork(-7 - (self.delay / 9))
+        self.__screenWork()
 
-    def __screenWork(self, pixels: int = -7):
+    def __screenWork(self):
         if self.dataFile.source == "telewebion":
             try:
                 try:
                     playButton = self.driver.find_element("xpath", "//button[@class='vjs-big-play-button']")
                     playButton.click()
                 except:
-                    time.sleep(2)
-                    playButton = self.driver.find_element("xpath", "//button[@class='vjs-big-play-button']")
-                    playButton.click()
+                    try:
+                        time.sleep(2)
+                        playButton = self.driver.find_element("xpath", "//button[@class='vjs-big-play-button']")
+                        playButton.click()
+                    except:
+                        triesNum = 0
+                        while triesNum <= 2:
+                            self.driver.refresh()
+                            time.sleep(2)
+                            try:
+                                playButton = self.driver.find_element("xpath", "//button[@class='vjs-big-play-button']")
+                                playButton.click()
+                                triesNum = 0
+                                break
+                            except :
+                                triesNum+=1
+                        if triesNum ==2:
+                            print("the web page doesn't load")
+                            return
                 action = webdriver.ActionChains(self.driver)
                 fullScreen = self.driver.find_element("xpath", "//button[@class='vjs-fullscreen-control vjs-control vjs-button']")
                 ball = self.driver.find_element("xpath", "//div[@class='vjs-play-progress vjs-slider-bar']")
                 #try:
-                action.drag_and_drop_by_offset(ball ,405 + pixels , 0).perform()
+                rewindPixels = 0
+                rewindInt = 0
+                while rewindInt <= self.timeLen:
+                    rewindPixels -= 2
+                    action.move_to_element_with_offset(ball ,430 + rewindPixels , 0).perform()
+                    rewindTime = self.driver.find_element("xpath",
+                                                          "/html/body/app-root/div/div/main/div[1]/app-channel/div[2]/div[1]/div[1]/div/div[1]/app-videojs-player/div/div/div[4]/div[2]/div[1]/div/div[2]/div").get_attribute(
+                        'innerHTML')
+                    time.sleep(0.2)
+                    rewindTime = rewindTime[::-1]
+                    timeMark = rewindTime.find(":")
+                    rewindTime = rewindTime[0:2] +rewindTime[timeMark + 1: timeMark + 3]
+                    rewindTime = rewindTime[::-1]
+                    print(rewindTime)
+                    rewindInt = int(rewindTime)
+                action.drag_and_drop_by_offset(ball ,430 + rewindPixels , 0).perform()
                 time.sleep(1)
                 action.click(fullScreen).perform()
-                # except:
-                #     # try:
-                #     #     time.sleep(6)
-                #     #     skipAd = self.driver.find_element("xpath", "//button[@aria-label='Skip Ad']")
-                #     #     skipAd.click()
-                #     #     self.__screenWork(-9)
-                #     # except:
-                #     #      print("your connection is bad :(")
-                #     #      self.driver.refresh()
-                #     #      time.sleep(10)
-                #     #      self.__makeSureVideoIsntStopped()
-                #     time.sleep(10)
-                #     self.__screenWork(-8)
                 self.__makeSureVideoIsntStopped()
             except:
-                try:
-                    screen = self.driver.find_element("xpath", "//div[@class='rmp-ad-container']")
-                except:
-                    self.__makeSureVideoIsntStopped()
-                    time.sleep(1)
-                    screen = self.driver.find_element("xpath", "//div[@class='rmp-ad-container']")
-
-                    # # screen.click()
                 action = webdriver.ActionChains(self.driver)
-                action.click(screen)
                 fullScreen = self.driver.find_element("xpath", "//button[@aria-label='Full Screen']")
-                ball = self.driver.find_element("xpath", "//div[@class='rmp-handle rmp-color-bg-button']")
-                try:
-                    action.drag_and_drop_by_offset(ball, pixels, 0).perform()
-                    action.click(screen)
-                    fullScreen.click()
-                except:
-                    # try:
-                    #     time.sleep(6)
-                    #     skipAd = self.driver.find_element("xpath", "//button[@aria-label='Skip Ad']")
-                    #     skipAd.click()
-                    #     self.__screenWork(-9)
-                    # except:
-                    #      print("your connection is bad :(")
-                    #      self.driver.refresh()
-                    #      time.sleep(10)
-                    #      self.__makeSureVideoIsntStopped()
-                    time.sleep(10)
-                    self.__screenWork(-8)
+                ball = self.driver.find_element("xpath", "//div[@class='rmp-loaded']")
+                rewindInt =0
+                rewindPixels =0
+                while rewindInt <= self.timeLen:
+                    rewindPixels -= 2
+                    action.move_to_element_with_offset(ball, 430 + rewindPixels, 0).perform()
+                    rewindTime = self.driver.find_element("xpath",
+                                                          "/html/body/app-root/div/div/main/div[1]/app-channel/div[2]/div[1]/div[1]/div/div[1]/app-radiant-player/div/div/div/div[4]/div[2]/div/div[4]/span").get_attribute(
+                        'innerHTML')
+                    rewindTime = rewindTime[::-1]
+                    timeMark = rewindTime.find(":")
+                    rewindTime = rewindTime[0:2] + rewindTime[timeMark + 1: timeMark + 3]
+                    rewindTime = rewindTime[::-1]
+                    print(rewindTime)
+                    rewindInt = int(rewindTime)
+                action.drag_and_drop_by_offset(ball, 430+ rewindPixels, 0).perform()
+                action.move_to_element(fullScreen).click(fullScreen).perform()
 
 
 
@@ -133,33 +140,21 @@ class Record:
             action.click(screen)
             fullScreen = self.driver.find_element("xpath", "//button[@aria-label='تمام صفحه F']")
             try:
-                action.click(screen)
+                action.click(screen).perform()
                 fullScreen.click()
             except:
-                self.driver.refresh()
-                self.__screenWork()
+                action.click(screen).perform()
+                fullScreen.click()
             self.__makeSureVideoIsntStopped()
 
 
         elif self.dataFile.source == "anten":
-            try:
-                screen = self.driver.find_element("xpath", "//div[@aria-label='پخش کننده ویدیو']")
-                # # screen.click()
+                fullScreen = self.driver.find_element("xpath", "//button[@class='vjs-fullscreen-control vjs-control vjs-button']")
                 action = webdriver.ActionChains(self.driver)
-                action.click(screen)
-                fullScreen = self.driver.find_element("xpath", "//span[@class='vjs-icon-placeholder']")
-                try:
-                    action.click(screen)
-                    fullScreen.click()
-                except:
-                    print("your connection is bad :(")
-                    self.driver.refresh()
-                    self.__screenWork()
-                self.__makeSureVideoIsntStopped()
-            except:
-                enter = self.driver.find_element("xpath", "//button[@class='btn btn-primary btn-player player-overlay--cta mx-auto d-table']")
-                enter.click()
+                action.move_to_element(fullScreen).perform()
                 time.sleep(1)
+                action.click(fullScreen).perform()
+
 
 
 
