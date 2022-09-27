@@ -13,12 +13,18 @@ from selenium.webdriver.firefox import firefox_profile
 from selenium.webdriver.common.keys import Keys
 
 
+def sumOfTwoSeconds(num1: int, num2: int):
+    result = num1 + num2
+    return (int(result / 60) * 100) + (result % 60)
+
+
 class Record:
-    def __init__(self, dataFile: DataFile.DataFile, timeLimitSec: int, delay: int = 0, rewindTimeSec: int = 50):
+    def __init__(self, dataFile: DataFile.DataFile, timeLimitSec: int, delay: int = 0, rewindTimeSec: int = 30):
+        self.startTime = time.time()
         self.driver = None
         self.dataFile = dataFile
         self.timeLimit = timeLimitSec
-        self.timeLen = rewindTimeSec + delay
+        self.timeLen = sumOfTwoSeconds(delay, rewindTimeSec)
 
     def record(self):
         # webbrowser.open(self.url.getUrl())  # Go to example.com
@@ -71,6 +77,11 @@ class Record:
                     except:
                         triesNum = 0
                         while triesNum <= 2:
+                            fullScreenInOldTheme = self.driver.find_element("xpath",
+                                                                            "//button[@aria-label='Full Screen']")
+                            if fullScreenInOldTheme.is_displayed():
+                                self.telewebionOldTheme()
+                                return
                             self.driver.refresh()
                             time.sleep(2)
                             try:
@@ -81,8 +92,7 @@ class Record:
                             except:
                                 triesNum += 1
                         if triesNum == 3:
-                            print("the web page doesn't load")
-                            return
+                            raise Exception("the web page doesn't load")
                 action = webdriver.ActionChains(self.driver)
                 fullScreen = self.driver.find_element("xpath",
                                                       "//button[@class='vjs-fullscreen-control vjs-control vjs-button']")
@@ -90,41 +100,30 @@ class Record:
                 # try:
                 rewindPixels = 0
                 rewindInt = 0
+                endTime = time.time()
+                self.timeLen = sumOfTwoSeconds(self.timeLen, int(endTime - self.startTime))
                 while rewindInt <= self.timeLen:
                     rewindPixels -= 2
                     action.move_to_element_with_offset(ball, 430 + rewindPixels, 0).perform()
+                    time.sleep(0.2)
                     rewindTime = self.driver.find_element("xpath",
                                                           "/html/body/app-root/div/div/main/div[1]/app-channel/div[2]/div[1]/div[1]/div/div[1]/app-videojs-player/div/div/div[4]/div[2]/div[1]/div/div[2]/div").get_attribute(
                         'innerHTML')
-                    time.sleep(0.2)
                     rewindTime = rewindTime[::-1]
                     timeMark = rewindTime.find(":")
                     rewindTime = rewindTime[0:2] + rewindTime[timeMark + 1: timeMark + 3]
                     rewindTime = rewindTime[::-1]
                     rewindInt = int(rewindTime)
+                    print(rewindTime)
                 action.drag_and_drop_by_offset(ball, 430 + rewindPixels, 0).perform()
                 time.sleep(1)
                 action.click(fullScreen).perform()
                 self.__makeSureVideoDoesntStopped()
             except:
-                action = webdriver.ActionChains(self.driver)
-                fullScreen = self.driver.find_element("xpath", "//button[@aria-label='Full Screen']")
-                ball = self.driver.find_element("xpath", "//div[@class='rmp-loaded']")
-                rewindInt = 0
-                rewindPixels = 0
-                while rewindInt <= self.timeLen:
-                    rewindPixels -= 2
-                    action.move_to_element_with_offset(ball, 430 + rewindPixels, 0).perform()
-                    rewindTime = self.driver.find_element("xpath",
-                                                          "/html/body/app-root/div/div/main/div[1]/app-channel/div[2]/div[1]/div[1]/div/div[1]/app-radiant-player/div/div/div/div[4]/div[2]/div/div[4]/span").get_attribute(
-                        'innerHTML')
-                    rewindTime = rewindTime[::-1]
-                    timeMark = rewindTime.find(":")
-                    rewindTime = rewindTime[0:2] + rewindTime[timeMark + 1: timeMark + 3]
-                    rewindTime = rewindTime[::-1]
-                    rewindInt = int(rewindTime)
-                action.drag_and_drop_by_offset(ball, 430 + rewindPixels, 0).perform()
-                action.move_to_element(fullScreen).click(fullScreen).perform()
+                self.driver.refresh()
+                time.sleep(5)
+                self.__screenWork()
+                return
 
         elif self.dataFile.source == "www.aparat.com":
 
@@ -136,14 +135,25 @@ class Record:
                 time.sleep(2)
                 fullScreen = self.driver.find_element("xpath", "//button[@aria-label='تمام صفحه F']")
                 action.move_to_element(fullScreen).click(fullScreen).perform()
+            play = self.driver.find_element("xpath", "//button[@aria-label='پخش K']")
+            action.click(play).perform()
             self.__makeSureVideoDoesntStopped()
 
         elif self.dataFile.source == "www.anten.ir":
-            fullScreen = self.driver.find_element("xpath",
-                                                  "//button[@class='vjs-fullscreen-control vjs-control vjs-button']")
             action = webdriver.ActionChains(self.driver)
-            action.move_to_element(fullScreen).click(fullScreen).perform()
-
+            try:
+                fullScreen = self.driver.find_element("xpath",
+                                                      "//button[@class='vjs-fullscreen-control vjs-control vjs-button']")
+                action.move_to_element(fullScreen).click(fullScreen).perform()
+            except:
+                try:
+                    time.sleep(2)
+                    fullScreen = self.driver.find_element("xpath",
+                                                          "//button[@class='vjs-fullscreen-control vjs-control vjs-button']")
+                    action.move_to_element(fullScreen).click(fullScreen).perform()
+                except:
+                    self.driver.refresh()
+                    time.sleep(2)
         elif self.dataFile.source == "amzfootball.com":
 
             self.driver.execute_script("window.scrollTo(0,400)")
@@ -158,33 +168,32 @@ class Record:
                 try:
                     action.move_to_element(resume).click(resume).perform()
                 except:
-                        while tries <= 2:
-                            time.sleep(2)
-                            try :
-                                action.move_to_element(resume).click(resume).perform()
-                                tries = 0
-                                break
-                            except:
-                                tries += 1
-                        if tries == 3:
-                            raise Exception("couldn't find Resume Button")
+                    while tries <= 2:
+                        time.sleep(2)
+                        try:
+                            action.move_to_element(resume).click(resume).perform()
+                            tries = 0
+                            break
+                        except:
+                            tries += 1
+                    if tries == 3:
+                        raise Exception("couldn't find Resume Button")
             if self.dataFile.source.find("FullScreen") != -1:
                 try:
                     fullScreen = self.driver.find_element("xpath", self.dataFile.fullScreenXPATH)
                     action.move_to_element(fullScreen).click(fullScreen).perform()
                 except:
-                        while tries <= 2:
-                            time.sleep(2)
-                            try :
-                                fullScreen = self.driver.find_element("xpath", self.dataFile.fullScreenXPATH)
-                                action.move_to_element(fullScreen).click(fullScreen).perform()
-                                tries = 0
-                                break
-                            except:
-                                tries += 1
-                        if tries == 3:
-                            raise Exception("couldn't find Full-Screen Button")
-
+                    while tries <= 2:
+                        time.sleep(2)
+                        try:
+                            fullScreen = self.driver.find_element("xpath", self.dataFile.fullScreenXPATH)
+                            action.move_to_element(fullScreen).click(fullScreen).perform()
+                            tries = 0
+                            break
+                        except:
+                            tries += 1
+                    if tries == 3:
+                        raise Exception("couldn't find Full-Screen Button")
 
     def __makeSureVideoDoesntStopped(self):
         try:
@@ -200,3 +209,30 @@ class Record:
         except:
             # the video isnt stoped
             pass
+
+    def telewebionOldTheme(self):
+        try:
+            action = webdriver.ActionChains(self.driver)
+            fullScreen = self.driver.find_element("xpath", "//button[@aria-label='Full Screen']")
+            ball = self.driver.find_element("xpath", "//div[@class='rmp-loaded']")
+            rewindInt = 0
+            rewindPixels = 0
+            endTime = time.time()
+            self.timeLen += endTime - self.startTime
+            while rewindInt <= self.timeLen:
+                rewindPixels -= 2
+                action.move_to_element_with_offset(ball, 430 + rewindPixels, 0).perform()
+                rewindTime = self.driver.find_element("xpath",
+                                                      "/html/body/app-root/div/div/main/div[1]/app-channel/div[2]/div[1]/div[1]/div/div[1]/app-radiant-player/div/div/div/div[4]/div[2]/div/div[4]/span").get_attribute(
+                    'innerHTML')
+                rewindTime = rewindTime[::-1]
+                timeMark = rewindTime.find(":")
+                rewindTime = rewindTime[0:2] + rewindTime[timeMark + 1: timeMark + 3]
+                rewindTime = rewindTime[::-1]
+                rewindInt = int(rewindTime)
+        except:
+            time.sleep(10)
+            self.telewebionOldTheme()
+            return
+        action.drag_and_drop_by_offset(ball, 430 + rewindPixels, 0).perform()
+        action.move_to_element(fullScreen).click(fullScreen).perform()
