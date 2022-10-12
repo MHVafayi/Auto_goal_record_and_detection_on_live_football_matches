@@ -1,21 +1,26 @@
-import time
 from urllib.request import urlopen
 import DataFile
-from datetime import datetime, timedelta
-
+import urllib
+import Other
+import html
 
 class GetResults:
     def __init__(self, data: DataFile.DataFile()):
         self.data = data
-        html = urlopen(self.data.URlTocheck).read()
-        self.text = html.decode("utf-8")
+        try:
+            htmlText = urlopen(self.data.UrlToCheck, timeout=10).read()
+        except:
+            htmlText = urlopen(self.data.UrlToCheck, timeout=10).read()
+        self.text = htmlText.decode("utf-8")
+        self.text = html.unescape(self.text)
 
-    def updateResults(self):
+    def hasResultChanged(self):
         oldResult1 = self.data.result1
         oldResult2 = self.data.result2
         self.setMutableData()
         print(self.data.resultToString())
-        if self.data.result1 != oldResult1 or self.data.result2 != oldResult2:
+        if self.data.result1 > oldResult1 or self.data.result2 > oldResult2:
+            # the goal is disallowed by VAR if the current is less than the prior result
             return True
         else:
             return False
@@ -25,38 +30,48 @@ class GetResults:
         self.setMutableData()
         self.setStartTime()
 
-    def setMutableData(self, possibleToChangeTime: bool = False):
-        resultScript = self.text.find('class="css-bw7eig-topRow"')
+    def setMutableData(self, possibleScheduleChanges: bool = False):
+        resultIndex = self.text.find('class="css-bw7eig-topRow"')
         result = self.text[
-                 resultScript + len('class="css-bw7eig-topRow>"'): resultScript + self.text[resultScript:-1].find(
+                 resultIndex + len('class="css-bw7eig-topRow>"'): resultIndex + self.text[resultIndex:-1].find(
                      "</span>")]
         self.data.result1 = result[0:result.find("-") - 1]
         self.data.result2 = result[result.find("-") + 2::]
-        minScriptIndex = self.text.find('class="css-lv1jm0-bottomRow"')
+        minIndex = self.text.find('class="css-lv1jm0-bottomRow"')
         self.data.minGame = self.text[
-                            minScriptIndex + len('class="css-lv1jm0-bottomRow">'): self.text[minScriptIndex:-1].find(
-                                "</span>") + minScriptIndex]
-        if possibleToChangeTime:
+                            minIndex + len('class="css-lv1jm0-bottomRow">'): self.text[minIndex:-1].find(
+                                "</span>") + minIndex]
+        if possibleScheduleChanges:
             self.setStartTime()
 
     def setImmutableData(self):
-        team1ScriptIndex = self.text.find('class="css-er0nau-TeamName e3q4wbq4"')
-        self.data.team1 = self.text[team1ScriptIndex + len('class="css-er0nau-TeamName e3q4wbq4"><span>'):self.text[
-                                                                                                          team1ScriptIndex:-1].find(
-            "</span>") + team1ScriptIndex]
-        team2ScriptIndex = self.text.find('class="css-11064rk-TeamMarkup-applyHover e3q4wbq5"><div '
+        team1Index = self.text.find('class="css-er0nau-TeamName e3q4wbq4"')
+        self.data.team1 = self.text[team1Index + len('class="css-er0nau-TeamName e3q4wbq4"><span>'):self.text[
+                                                                                                          team1Index:-1].find(
+            "</span>") + team1Index]
+        team2Index = self.text.find('class="css-11064rk-TeamMarkup-applyHover e3q4wbq5"><div '
                                           'style="width:50px;height:50px;background-color:transparent"></div><span '
                                           'class="css-er0nau-TeamName e3q4wbq4"><span>')
-        self.data.team2 = self.text[team2ScriptIndex + len('class="css-11064rk-TeamMarkup-applyHover e3q4wbq5"><div '
+        self.data.team2 = self.text[team2Index + len('class="css-11064rk-TeamMarkup-applyHover e3q4wbq5"><div '
                                                            'style="width:50px;height:50px;background-color:transparent'
                                                            '"></div><span class="css-er0nau-TeamName '
-                                                           'e3q4wbq4"><span>'):self.text[team2ScriptIndex:-1].find(
-            "</span>") + team2ScriptIndex]
+                                                           'e3q4wbq4"><span>'):self.text[team2Index:-1].find(
+            "</span>") + team2Index]
 
     def setStartTime(self):
+        oldStartTime = self.data.startTime
         startTimeIndex = self.text.find('<time')
         dateScript = self.text[startTimeIndex:-1]
-        self.data.matchDay = dateScript[dateScript.find("<span>") + len("<span>day, "): dateScript.find("</span>")]
+        matchDay = dateScript[dateScript.find("dateTime=") + len("datetime='"): dateScript.find(":") - 3].replace("-",
+                                                                                                                  "")
         dateScript = dateScript[dateScript.find("</span>") + len("</span>")::]
-        self.data.startTime = int(dateScript[dateScript.find("<span>") + len("<span> "): dateScript.find("</span>")].replace(":",""))
-        self.data.estimatedEndOfHalfTime = self.data.startTime + 100  # 1 hour
+        startTime = dateScript[dateScript.find("<span>") + len("<span> "): dateScript.find("</span>")].replace(":", "")
+        self.data.startTime = int(matchDay + startTime)
+        self.data.estimatedEndOfHalfTime = int(Other.sumTwoTimes(matchDay + startTime, "0100"))
+        if oldStartTime != self.data.startTime and self.data.choice is not None:
+            if self.data.choice.value == 0:
+                self.data.waitUntil = self.data.startTime
+            elif self.data.choice.value == -1:
+                before = Other.minusTwoTimes(str(oldStartTime), str(self.data.waitUntil)[8::])[8::]
+                self.data.waitUntil = Other.minusTwoTimes(str(self.data.startTime), before)
+
