@@ -1,7 +1,6 @@
 from urllib.request import urlopen
-import DataFile
-import urllib
-import Other
+from GoalRecorder.src import DataFile
+from GoalRecorder.src.Other import sumTwoTimes, minusTwoTimes
 import html
 
 class GetResults:
@@ -67,11 +66,11 @@ class GetResults:
         dateScript = dateScript[dateScript.find("</span>") + len("</span>")::]
         startTime = dateScript[dateScript.find("<span>") + len("<span> "): dateScript.find("</span>")].replace(":", "")
         self.data.startTime = int(matchDay + startTime)
-        self.data.estimatedEndOfHalfTime = int(Other.sumTwoTimes(matchDay + startTime, "0100"))
+        self.data.estimatedEndOfHalfTime = int(sumTwoTimes(matchDay + startTime, "0100"))
         if oldStartTime != self.data.startTime and self.data.choice is not None:
             if self.data.choice.value == 0:
                 self.data.waitUntil = self.data.startTime
             elif self.data.choice.value == -1:
-                before = Other.minusTwoTimes(str(oldStartTime), str(self.data.waitUntil)[8::])[8::]
-                self.data.waitUntil = Other.minusTwoTimes(str(self.data.startTime), before)
+                before = minusTwoTimes(str(oldStartTime), str(self.data.waitUntil)[8::])[8::]
+                self.data.waitUntil = minusTwoTimes(str(self.data.startTime), before)
 
