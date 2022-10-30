@@ -1,5 +1,5 @@
 from time import time, sleep
-import DataFile
+from GoalRecorder.src import DataFile
 import cv2
 import numpy as np
 import pyautogui
@@ -11,26 +11,21 @@ def sumOfTwoSeconds(num1: int, num2: int):
     return (int(result / 60) * 100) + (result % 60)
 
 
-def getProfile():
-    profile = open("Profile.txt", 'r')
-    return profile.read()[len("FirefoxProfilePath: ")::]
-
-
 class Record:
-    def __init__(self, dataFile: DataFile.DataFile, timeLimitSec: int, delay: int = 0, rewindTimeSec: int = 30):
+    def __init__(self, dataFile: DataFile.DataFile, timeLimitSec: int, delay: int = 0, rewindTimeSec: int = 30, FirefoxProfle: str = ""):
+        self.profile = FirefoxProfle
         self.startTime = time()
         self.driver = None
         self.dataFile = dataFile
         self.timeLimit = timeLimitSec
         self.timeLen = sumOfTwoSeconds(delay, rewindTimeSec)
-        self.profile = getProfile()
 
     def record(self):
         if self.dataFile.source == "wait":
             print("No url is given")
             return
         self.__createScreen()
-        output = self.dataFile.getFileName() + ".avi"
+        output = self.dataFile.getFileName()+ ".avi"
         img = pyautogui.screenshot()
         img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
         # get info from img
@@ -38,7 +33,7 @@ class Record:
         # Define the codec and create VideoWriter object
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(output, fourcc, 13.0, (width, height))
-        print("Recording...\nFilename: " + output)
+        print("Recording...\nName: " + output)
         startTime = time()
         while time() - startTime < self.timeLimit:
             try:
@@ -66,6 +61,13 @@ class Record:
         self.__screenWork()
 
     def __screenWork(self):
+        def __getLabelOfXOffset(pixel: int):
+            action.move_to_element_with_offset(ball, pixel, 0).perform()
+            sleep(0.3)
+            rewindTime = str(label.get_attribute('innerHTML'))
+            rewindTime = rewindTime.replace(":", "")
+            return int(rewindTime)
+
         if self.dataFile.source == "telewebion.com":
             try:
                 playButton = self.driver.find_element("xpath", "//button[@class='vjs-big-play-button']")
@@ -102,15 +104,9 @@ class Record:
             label = self.driver.find_element("xpath",
                                              "/html/body/app-root/div/div/main/div[1]/app-channel/div[2]/div[1]/div[1]/div/div[1]/app-videojs-player/div/div/div[4]/div[2]/div[1]/div/div[2]/div")
 
-            def __getLabelOfXOffset(pixel: int):
-                action.move_to_element_with_offset(ball, pixel, 0).perform()
-                sleep(0.3)
-                rewindTime = str(label.get_attribute('innerHTML'))
-                rewindTime = rewindTime.replace(":", "")
-                return int(rewindTime)
 
             scrollerWidth = ball.size['width'] / 2
-            lowerBound = __getLabelOfXOffset(scrollerWidth)
+            lowerBound = __getLabelOfXOffset(-int(scrollerWidth))
             if lowerBound < 0:
                 lowerBound *= -1
             endTime = time()
@@ -125,114 +121,105 @@ class Record:
             action.drag_and_drop_by_offset(ball, rewindPixels, 0).perform()
             sleep(1)
             action.click(fullScreen).perform()
-            self.__makeSureVideoDoesntStopped()
-
-        elif self.dataFile.source == "www.aparat.com":
-
-            action = webdriver.ActionChains(self.driver)
-            try:
-                fullScreen = self.driver.find_element("xpath", "//button[@aria-label='تمام صفحه F']")
-                action.move_to_element(fullScreen).click(fullScreen).perform()
-            except:
-                sleep(1)
-                fullScreen = self.driver.find_element("xpath", "//button[@aria-label='تمام صفحه F']")
-                action.move_to_element(fullScreen).click(fullScreen).perform()
-                tries = 0
-                while tries < 3:
-                    self.driver.refresh()
-                    sleep(5)
-                    try:
-                        fullScreen = self.driver.find_element("xpath", "//button[@aria-label='تمام صفحه F']")
-                        action.move_to_element(fullScreen).click(fullScreen).perform()
-                        tries = 0
-                        break
-                    except:
-                        tries += 1
-                if tries == 3:
-                    raise Exception("the web page doesn't load")
-
-            play = self.driver.find_element("xpath", "//button[@aria-label='پخش K']")
-            action.move_to_element(play).click(play).perform()
-            self.__makeSureVideoDoesntStopped()
-
-        elif self.dataFile.source == "www.anten.ir":
-            action = webdriver.ActionChains(self.driver)
-            try:
-                fullScreen = self.driver.find_element("xpath",
-                                                      "//button[@class='vjs-fullscreen-control vjs-control vjs-button']")
-                action.move_to_element(fullScreen).click(fullScreen).perform()
-            except:
-                try:
-                    sleep(2)
-                    fullScreen = self.driver.find_element("xpath",
-                                                          "//button[@class='vjs-fullscreen-control vjs-control vjs-button']")
-                    action.move_to_element(fullScreen).click(fullScreen).perform()
-                except:
-                    tries = 0
-                    while tries < 3:
-                        try:
-                            fullScreen = self.driver.find_element("xpath",
-                                                                  "//button[@class='vjs-fullscreen-control vjs-control vjs-button']")
-                            action.move_to_element(fullScreen).click(fullScreen).perform()
-                            tries = 0
-                            break
-                        except:
-                            tries += 1
-                    if tries == 3:
-                        raise Exception("the web page doesn't load")
 
         elif self.dataFile.source == "amzfootball.com":
             self.driver.execute_script("window.scrollTo(0,400)")
 
         else:
-            tries = 0
+            elementsNum = 0
             action = webdriver.ActionChains(self.driver)
-            if self.dataFile.source.find("Resume") != -1:
+            if self.dataFile.resumeXPath.strip() != "":
+                elementsNum += 1
                 resume = self.driver.find_element("xpath", self.dataFile.resumeXPath)
                 try:
                     action.move_to_element(resume).click(resume).perform()
                 except:
-                    while tries <= 2:
+                    try:
                         sleep(2)
-                        try:
-                            action.move_to_element(resume).click(resume).perform()
-                            tries = 0
-                            break
-                        except:
-                            tries += 1
-                    if tries == 3:
-                        raise Exception("couldn't find Resume Button")
-            if self.dataFile.source.find("FullScreen") != -1:
+                        resume = self.driver.find_element("xpath", self.dataFile.resumeXPath)
+                        action.move_to_element(resume).click(resume).perform()
+                    except:
+                        tries = 0
+                        while tries <= 2:
+                            if elementsNum == 1:
+                                self.driver.refresh()
+                                sleep(5)
+                            try:
+                                sleep(1)
+                                resume = self.driver.find_element("xpath", self.dataFile.resumeXPath)
+                                action.move_to_element(resume).click(resume).perform()
+                                tries = 0
+                                break
+                            except:
+                                tries += 1
+                        if tries == 3:
+                            raise Exception("couldn't find Resume Button")
+
+            if self.dataFile.progressBarXPath != "" and self.dataFile.timeLabelXPath != "":
+                elementsNum += 1
+                try:
+                    ball = self.driver.find_element("xpath", self.dataFile.progressBarXPath)
+                except:
+                    try:
+                        sleep(2)
+                        ball = self.driver.find_element("xpath", self.dataFile.progressBarXPath)
+                    except:
+                        tries = 0
+                        while tries < 2:
+                            if elementsNum == 1:
+                                self.driver.refresh()
+                                sleep(5)
+                            try:
+                                sleep(1)
+                                ball = self.driver.find_element("xpath", self.dataFile.progressBarXPath)
+                                tries = 0
+                                break
+                            except:
+                                tries += 1
+                        if tries == 3:
+                            raise Exception("couldn't find Progress-Bar")
+                label = self.driver.find_element("xpath", self.dataFile.timeLabelXPath)
+                scrollerWidth = ball.size['width'] / 2
+                lowerBound = __getLabelOfXOffset(-int(scrollerWidth))
+                if lowerBound < 0:
+                    lowerBound *= -1
+                endTime = time()
+                self.timeLen = sumOfTwoSeconds(self.timeLen, int(endTime - self.startTime))
+                if self.timeLen > lowerBound:
+                    rewindPixels = -scrollerWidth
+                else:
+                    try:
+                        rewindPixels = (((2 * -scrollerWidth) / lowerBound) * self.timeLen) + scrollerWidth
+                    except ZeroDivisionError:
+                        rewindPixels = scrollerWidth
+                action.drag_and_drop_by_offset(ball, rewindPixels, 0).perform()
+
+            if self.dataFile.fullScreenXPath.strip() != "":
+                elementsNum += 1
                 try:
                     fullScreen = self.driver.find_element("xpath", self.dataFile.fullScreenXPath)
                     action.move_to_element(fullScreen).click(fullScreen).perform()
                 except:
-                    while tries <= 2:
+                    try:
                         sleep(2)
-                        try:
-                            fullScreen = self.driver.find_element("xpath", self.dataFile.fullScreenXPath)
-                            action.move_to_element(fullScreen).click(fullScreen).perform()
-                            tries = 0
-                            break
-                        except:
-                            tries += 1
-                    if tries == 3:
-                        raise Exception("couldn't find Full-Screen Button")
-
-    def __makeSureVideoDoesntStopped(self):
-        try:
-            if self.dataFile.source == "telewebion":
-                MainPLay = self.driver.find_element("xpath", "//button[@class='vjs-big-play-button']")
-                MainPLay.click()
-            elif self.dataFile.source == "aparat":
-                play = self.driver.find_element("xpath", "//button[@aria-label='پخش K']")
-                play.click()
-            elif self.dataFile.source == "anten":
-                play = self.driver.find_element("xpath", "//span[@class='vjs-icon-placeholder']")
-                play.click()
-        except:
-            # the video isnt stoped
-            pass
+                        fullScreen = self.driver.find_element("xpath", self.dataFile.fullScreenXPath)
+                        action.move_to_element(fullScreen).click(fullScreen).perform()
+                    except:
+                        tries = 0
+                        while tries <= 2:
+                            if elementsNum == 1:
+                                self.driver.refresh()
+                                sleep(5)
+                            try:
+                                sleep(1)
+                                fullScreen = self.driver.find_element("xpath", self.dataFile.fullScreenXPath)
+                                action.move_to_element(fullScreen).click(fullScreen).perform()
+                                tries = 0
+                                break
+                            except:
+                                tries += 1
+                        if tries == 3:
+                            raise Exception("couldn't find Full-Screen Button")
 
     def telewebionOldTheme(self):
         try:
