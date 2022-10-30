@@ -1,0 +1,16 @@
+www.aparat.com: importance: 4
+    FullScreen: //button[@aria-label='تمام صفحه F']
+    Resume: //button[@aria-label='پخش K']
+    TimeLabel:
+    ProgressBar:
+
+www.anten.ir: importance: 5
+    FullScreen: //button[@class='vjs-fullscreen-control vjs-control vjs-button']
+    Resume:
+    TimeLabel:
+    ProgressBar:
+
+telewebion.com: (i have specially written this in Record class line 71) importance: 3
+
+amzfootball.com: (i have specially written this in Record class line 125) importance: 2
+
