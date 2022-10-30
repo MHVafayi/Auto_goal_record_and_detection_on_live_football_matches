@@ -1,0 +1,5 @@
+It's important to note that you need to enter Stream urls in order that you entered in Fotmob urls.
+Fotmob Urls:
+    https://www.fotmob.com/match/example
+Stream Urls:
+    https://example_stream.com
