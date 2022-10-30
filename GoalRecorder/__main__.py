@@ -89,7 +89,7 @@ class UserInterface:
                                 profile = open("src/Profile.txt", 'r', encoding="utf-8")
                             data = ""
                             for line in profile:
-                                if line.lower().strip().find("firefoxprofilpath:") != -1:
+                                if line.lower().strip().find("firefoxprofilepath:") != -1:
                                     data += "FirefoxProfilePath: " + Firefox + "\n"
                                 else:
                                     data += line
