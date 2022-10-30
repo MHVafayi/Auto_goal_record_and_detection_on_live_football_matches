@@ -1,4 +1,9 @@
 It's important to note that you need to enter Stream urls in order that you entered in Fotmob urls.
+also you can write one of the option below instead of live stream url if you don't have it:
+    start : ask for url when the match starts
+    before : ask for url before the match starts (minutes will be asked when you run it)
+    later : (minutes will be asked when you run it)
+
 Fotmob Urls:
     https://www.fotmob.com/match/example
 Stream Urls:
